@@ -80,6 +80,9 @@ public:
   write (const uint8_t *data, size_t length);
 
   void
+  sleepByteTimes(const size_t count);
+
+  void
   flush ();
 
   void
@@ -187,6 +190,10 @@ private:
   struct timespec write_timeout_constant_;
   struct timespec write_timeout_multiplier_;
 
+  // Amount of time taken by a single byte transmission under
+  // the current port configuration.
+  struct timespec byte_time_;
+
   unsigned long baudrate_;    // Baudrate
 
   parity_t parity_;           // Parity
@@ -203,3 +210,4 @@ private:
 }
 
 #endif // SERIAL_IMPL_UNIX_H
+

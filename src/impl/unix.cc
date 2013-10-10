@@ -364,6 +364,17 @@ Serial::SerialImpl::reconfigurePort ()
 
   // activate settings
   ::tcsetattr (fd_, TCSANOW, &options);
+
+  // Update byte_time_ based on the new settings.
+  uint32_t bit_time_ns = 1e9 / baudrate_;
+  uint32_t byte_time_ns = bit_time_ns * (1 + bytesize_ + parity_ + stopbits_);
+  if (stopbits_ == stopbits_one_point_five) {
+    // Compensate for the stopbits_one_point_five enum being equal to int 3, 
+    // and not 1.5. 
+    byte_time_ns += ((1.5 - stopbits_one_point_five) * bit_time_ns);
+  }
+  byte_time_.tv_sec = 0;
+  byte_time_.tv_nsec = byte_time_ns;
 }
 
 void
@@ -457,10 +468,20 @@ Serial::SerialImpl::read (uint8_t *buf, size_t size)
     if (r > 0) {
       // Make sure our file descriptor is in the ready to read list
       if (FD_ISSET (fd_, &readfds)) {
+        // The pselect call has notified that at least 1 byte is available
+        // to be read. However, if the user request is for more than what's
+        // immediately available, we can save CPU by sleeping for the time
+        // required to receive the still-outstanding bytes.
+        ssize_t bytes_outstanding = size - bytes_read - available();
+        if (bytes_outstanding > 0) {
+          sleepByteTimes(bytes_outstanding);
+        } 
+
         // This should be non-blocking returning only what is available now
-        //  Then returning so that pselect can block again.
+        // and then returning so that pselect can block again.
         ssize_t bytes_read_now =
           ::read (fd_, buf + bytes_read, size - bytes_read);
+        
         // read should always return some data as pselect reported it was
         // ready to read when we get to this point.
         if (bytes_read_now < 1) {
@@ -571,6 +592,13 @@ Serial::SerialImpl::write (const uint8_t *data, size_t length)
     }
   }
   return bytes_written;
+}
+
+void
+Serial::SerialImpl::sleepByteTimes (const size_t count)
+{
+  timespec sleep_time(byte_time_ * count), remainder;
+  nanosleep(&sleep_time, &remainder);
 }
 
 void
