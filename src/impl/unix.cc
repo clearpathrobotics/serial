@@ -442,6 +442,9 @@ Serial::SerialImpl::read (uint8_t *buf, size_t size)
     // timeout) or the inter-byte timeout is sooner, and use that one as the
     // timeout for the pselect call.
     struct timespec timeout_remaining(timeout_endtime - timespec_now());
+    if (timeout_remaining.tv_nsec < 0) {
+      break;
+    }
     struct timespec timeout(min(timeout_remaining, inter_byte_timeout_));
 
     // Call pselect to block for serial data or a timeout
