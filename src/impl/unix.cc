@@ -601,7 +601,7 @@ void
 Serial::SerialImpl::sleepByteTimes (const size_t count)
 {
   timespec sleep_time(byte_time_ * count), remainder;
-  nanosleep(&sleep_time, &remainder);
+  pselect (0, NULL, NULL, NULL, &sleep_time, NULL);
 }
 
 void
