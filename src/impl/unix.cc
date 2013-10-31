@@ -55,8 +55,8 @@ MillisecondTimer::MillisecondTimer (const uint32_t millis)
 {
   int64_t tv_nsec = expiry.tv_nsec + (millis * 1e6);
   if (tv_nsec > 1e9) {
-    int64_t sec_diff = tv_nsec / (int)1e6;
-    expiry.tv_nsec = tv_nsec - (int)(1e6 * sec_diff);
+    int64_t sec_diff = tv_nsec / static_cast<int> (1e6);
+    expiry.tv_nsec = tv_nsec - static_cast<int> (1e6 * sec_diff);
     expiry.tv_sec += sec_diff;
   }
 }
@@ -89,7 +89,7 @@ MillisecondTimer::timespec_now ()
 }
 
 timespec
-timespec_from_ms (const uint32_t millis) 
+timespec_from_ms (const uint32_t millis)
 {
   timespec time;
   time.tv_sec = millis / 1e3;
@@ -296,7 +296,7 @@ Serial::SerialImpl::reconfigurePort ()
     // other than those specified by POSIX. The driver for the underlying serial hardware
     // ultimately determines which baud rates can be used. This ioctl sets both the input
     // and output speed.
-    speed_t new_baud = static_cast<speed_t>(baudrate_);
+    speed_t new_baud = static_cast<speed_t> (baudrate_);
     if (ioctl (fd_, IOSSIOSPEED, &new_baud, 1) < 0) {
       THROW (IOException, errno);
     }
@@ -305,7 +305,7 @@ Serial::SerialImpl::reconfigurePort ()
     struct serial_struct ser;
     ioctl (fd_, TIOCGSERIAL, &ser);
     // set custom divisor
-    ser.custom_divisor = ser.baud_base / (int) baudrate_;
+    ser.custom_divisor = ser.baud_base / static_cast<int> (baudrate_);
     // update flags
     ser.flags &= ~ASYNC_SPD_MASK;
     ser.flags |= ASYNC_SPD_CUST;
@@ -453,10 +453,10 @@ Serial::SerialImpl::read (uint8_t *buf, size_t size)
   }
   fd_set readfds;
   size_t bytes_read = 0;
-  
+
   // Calculate total timeout in milliseconds t_c + (t_m * N)
   long total_timeout_ms = timeout_.read_timeout_constant;
-  total_timeout_ms += timeout_.read_timeout_multiplier*static_cast<long>(size);
+  total_timeout_ms += timeout_.read_timeout_multiplier * static_cast<long> (size);
   MillisecondTimer total_timeout(total_timeout_ms);
 
   while (bytes_read < size) {
@@ -468,15 +468,15 @@ Serial::SerialImpl::read (uint8_t *buf, size_t size)
 
     // Timeout for the next select is whichever is less of the remaining
     // total read timeout and the inter-byte timeout.
-    timespec timeout(timespec_from_ms(std::min((uint32_t)timeout_remaining_ms, 
+    timespec timeout(timespec_from_ms(std::min(static_cast<uint32_t> (timeout_remaining_ms),
                                                timeout_.inter_byte_timeout)));
 
     FD_ZERO (&readfds);
     FD_SET (fd_, &readfds);
-    
+
     // Call select to block for serial data or a timeout
     int r = pselect (fd_ + 1, &readfds, NULL, NULL, &timeout, NULL);
-    
+
     // Figure out what happened by looking at select's response 'r'
     /** Error **/
     if (r < 0) {
@@ -544,10 +544,10 @@ Serial::SerialImpl::write (const uint8_t *data, size_t length)
 
   // Calculate total timeout in milliseconds t_c + (t_m * N)
   long total_timeout_ms = timeout_.write_timeout_constant;
-  total_timeout_ms += timeout_.write_timeout_multiplier*static_cast<long>(length);
+  total_timeout_ms += timeout_.write_timeout_multiplier * static_cast<long> (length);
   MillisecondTimer total_timeout(total_timeout_ms);
 
-  while (bytes_written < length) { 
+  while (bytes_written < length) {
     int64_t timeout_remaining_ms = total_timeout.remaining();
     if (timeout_remaining_ms <= 0) {
       // Timed out
